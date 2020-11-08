@@ -9,15 +9,16 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
     <link rel="stylesheet" href="css/Styles.css" />
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css">
 </head>
 <body>
     <script src="build/Three.js"></script>
-    <script src="js/Stats.js"></script>
     <script src="js/Detector.js"></script>
     <script src="js/RequestAnimationFrame.js"></script>
+    <script src="http://code.jquery.com/jquery-1.11.0.min.js"></script>
     <script src="js/Main.js"></script>
 
-    <div id="info">
+    <div id="info" style="display: none">
         FinFinFlow - 3D fractal visualizer letting you explore musical flow through space & time.
         <br /> [Up-Down] Control speed
         <br /> [Left-Right] Control rotation
@@ -28,11 +29,14 @@
         <br /> [Space] Center Camera
     </div>
     <!-- IM Sets GUI to invisible, but can be toggled with above commands -->
+
     <script>
         document.getElementById('info').style.display = 'none';
-        stats.domElement.style.display = 'none';
         renderer.domElement.style.cursor = "none";
         VISUALS_VISIBLE = false;
     </script>
+
+    <svg preserveAspectRatio="none" id="visualizer_for_audio" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" style="display:none">
+    </svg>
 </body>
 </html>

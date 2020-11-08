@@ -72,12 +72,45 @@ var speed = 1;
 // Initial rotation speed (original = 0.005)
 var rotationSpeed = 0.005;
 
-init();
-animate();
+// Variables for Microphone Visualzer
+var AudioContext;
+var audioContent;
+var start = false;
+var permission = false;
+var path;
+var seconds = 0;
+var loud_volume_threshold = 30;
+var visualizer_for_audio;
+var h;
+var hSub;
+var audioStream;
+var stream;
+var audioCtx;
+var source;
+var biquadFilter;
+var analyser;
 
-function init() {
+$(document).ready(function() {
+
+  init();
+
+  permission = true;
+
+  animate();
+  
+});
+
+
+function init() {  
+    // From Mic Visulizer
+    navigator.mediaDevices.getUserMedia({audio:true}).then(readMicrophone)
+
+    AudioContext = window.AudioContext || window.webkitAudioContext;
+    audioContent = new AudioContext();
+
     // IM: New options are as follows
     // - cubeLR.png (hypercube)
+
     // - fractalLR.png (fractal)
     // - galaxy.png (default)
     sprite1 = THREE.ImageUtils.loadTexture("cubeLR.png");
@@ -117,30 +150,66 @@ function init() {
     renderer.setSize( window.innerWidth, window.innerHeight );
 
     container.appendChild( renderer.domElement );
-
-    stats = new Stats();
-    stats.domElement.style.position = 'absolute';
-    stats.domElement.style.top = '5px';
-    stats.domElement.style.right = '5px';
-    container.appendChild( stats.domElement );
             
     // Setup listeners
     document.addEventListener( 'mousemove', onDocumentMouseMove, false );
     document.addEventListener( 'touchstart', onDocumentTouchStart, false );
-    document.addEventListener( 'touchmove', onDocumentTouchMove, false );
+    document.addEventListener( 'touchmove', onDocumentTouchMove,
+     false );
     document.addEventListener( 'keydown', onKeyDown, false );
     window.addEventListener( 'resize', onWindowResize, false );
             
     // Schedule orbit regeneration
-    //setInterval(updateOrbit, 7000);
-    setInterval(updateOrbit, 250);
+    setInterval(updateOrbit, 5000);
 }
 
+
 function animate() {
-    requestAnimationFrame( animate );
-    render();
-    stats.update();
+  setInterval(requestAnimationFrame(animate), 1500);
+
+  render();
+
+  //navigator.mediaDevices.getUserMedia({audio:true}).then(readMicrophone);
+
+  //stats.update();
 }
+
+var readMicrophone = function(stream) {
+      // Create a MediaStreamAudioSourceNode
+    // Feed the HTMLMediaElement into it
+
+    //audioCtx = new AudioContext();
+    source = AudioContext.createMediaStreamSource(stream);
+    analyser = AudioContext.createAnalyser();
+
+    //analyser.fftSize = 1024;
+    source.connect(analyser);
+
+    var bufferLength = analyser.frequencyBinCount;
+    var frequencyArray = new Uint8Array(bufferLength);
+
+    analyser.getByteFrequencyData(frequencyArray);
+
+    console.log(frequencyArray);
+
+    //biquadFilter.connect(audioCtx.destination);
+    //biquadFilter.connect(audioCtx.destination);
+    //console.log(source['context']['listener'])//['upY']['value']);
+    //console.log('baseLat:' + audioCtx.destination.context.baseLatency)//['upY']['value']);
+
+    // Get new mouse pointer coordinates when mouse is moved
+    // then set new gain value
+    /*
+    range.oninput = function() {
+
+    biquadFilter.gain.value = range.value;
+    };
+    //.catch(function(error) { console.log(error) } );
+    */
+
+    return audioCtx.destination.context.baseLatency;
+};
+
 
 function render() {
     /* IM - Mouse Driven Camera Positioning (temporarily removed)                  
@@ -176,213 +245,214 @@ function render() {
 ///////////////////////////////////////////////
 // Hopalong Orbit Generator
 ///////////////////////////////////////////////         
-function updateOrbit(){
-    generateOrbit();
-    for (var s = 0; s < NUM_SUBSETS; s++){
-        hueValues[s] = Math.random();
-    }
-    for( i = 0; i < scene.objects.length; i++ ) {
-        scene.objects[i].needsUpdate = 1;
-    }
+  function updateOrbit(){
+      console.log('--- Update Orbit ---')
+      generateOrbit();
+      for (var s = 0; s < NUM_SUBSETS; s++){
+          hueValues[s] = Math.random();
+      }
+      for( i = 0; i < scene.objects.length; i++ ) {
+          scene.objects[i].needsUpdate = 1;
+      }
 
-}
-        
-function generateOrbit(){
-    var x, y, z, x1;
-    var idx = 0;
+  }
+          
+  function generateOrbit(){
+      var x, y, z, x1;
+      var idx = 0;
 
-    prepareOrbit();
-            
-    // Using local vars should be faster
-    var al = a;
-    var bl = b;
-    var cl = c;
-    var dl = d;
-    var el = e;
-    var subsets = orbit.subsets;
-    var num_points_subset_l = NUM_POINTS_SUBSET;
-    var num_points_l = NUM_POINTS;
-    var scale_factor_l = SCALE_FACTOR;
-            
-    var xMin = 0, xMax = 0, yMin = 0, yMax = 0;
+      prepareOrbit();
+              
+      // Using local vars should be faster
+      var al = a;
+      var bl = b;
+      var cl = c;
+      var dl = d;
+      var el = e;
+      var subsets = orbit.subsets;
+      var num_points_subset_l = NUM_POINTS_SUBSET;
+      var num_points_l = NUM_POINTS;
+      var scale_factor_l = SCALE_FACTOR;
+              
+      var xMin = 0, xMax = 0, yMin = 0, yMax = 0;
 
-    for (var s = 0; s < NUM_SUBSETS; s++){
-            
-        // Use a different starting point for each orbit subset
-        x = s * .005 * (0.5-Math.random());
-        y = s * .005 * (0.5-Math.random());
-                
-        var curSubset = subsets[s];
-                
-        for (var i = 0; i < num_points_subset_l; i++){
-                
-            // Iteration formula (generalization of the Barry Martin's original one)
-            z = (dl + Math.sqrt(Math.abs(bl * x - cl)));
-            if (x > 0) {x1 = y - z;}
-            else if (x == 0) {x1 = y;}
-            else {x1 = y + z;}
-            y = al - x;
-            x = x1 + el;        
+      for (var s = 0; s < NUM_SUBSETS; s++){
+              
+          // Use a different starting point for each orbit subset
+          x = s * .005 * (0.5-Math.random());
+          y = s * .005 * (0.5-Math.random());
+                  
+          var curSubset = subsets[s];
+                  
+          for (var i = 0; i < num_points_subset_l; i++){
+                  
+              // Iteration formula (generalization of the Barry Martin's original one)
+              z = (dl + Math.sqrt(Math.abs(bl * x - cl)));
+              if (x > 0) {x1 = y - z;}
+              else if (x == 0) {x1 = y;}
+              else {x1 = y + z;}
+              y = al - x;
+              x = x1 + el;        
 
-            curSubset[i].x = x;
-            curSubset[i].y = y;
-                    
-            if (x < xMin) {xMin = x;}
-            else if (x > xMax) {xMax = x;}
-            if (y < yMin) {yMin = y;}
-            else if (y > yMax) {yMax = y;}
-                    
-            idx++;
-        }
-    }
-                            
-    var scaleX = 2 * scale_factor_l / (xMax - xMin);
-    var scaleY = 2 * scale_factor_l / (yMax - yMin);
-            
-    orbit.xMin = xMin;
-    orbit.xMax = xMax;
-    orbit.yMin = yMin;
-    orbit.yMax = yMax;
-    orbit.scaleX = scaleX;
-    orbit.scaleY = scaleY;
-            
-    // Normalize and update vertex data             
-    for (var s = 0; s < NUM_SUBSETS; s++){
-        var curSubset = subsets[s];
-        for (var i = 0; i < num_points_subset_l; i++){
-            curSubset[i].vertex.position.x = scaleX * (curSubset[i].x - xMin) - scale_factor_l;
-            curSubset[i].vertex.position.y = scaleY * (curSubset[i].y - yMin) - scale_factor_l;                 
-        }
-    }
-}
-        
-function prepareOrbit(){
-    shuffleParams();
-    orbit.xMin = 0;
-    orbit.xMax = 0;
-    orbit.yMin = 0;
-    orbit.yMax = 0;
-}
-        
-function shuffleParams() {
-    a = A_MIN + Math.random() * (A_MAX - A_MIN);
-    b = B_MIN + Math.random() * (B_MAX - B_MIN);
-    c = C_MIN + Math.random() * (C_MAX - C_MIN);
-    d = D_MIN + Math.random() * (D_MAX - D_MIN);
-    e = E_MIN + Math.random() * (E_MAX - E_MIN);
-}
+              curSubset[i].x = x;
+              curSubset[i].y = y;
+                      
+              if (x < xMin) {xMin = x;}
+              else if (x > xMax) {xMax = x;}
+              if (y < yMin) {yMin = y;}
+              else if (y > yMax) {yMax = y;}
+                      
+              idx++;
+          }
+      }
+                              
+      var scaleX = 2 * scale_factor_l / (xMax - xMin);
+      var scaleY = 2 * scale_factor_l / (yMax - yMin);
+              
+      orbit.xMin = xMin;
+      orbit.xMax = xMax;
+      orbit.yMin = yMin;
+      orbit.yMax = yMax;
+      orbit.scaleX = scaleX;
+      orbit.scaleY = scaleY;
+              
+      // Normalize and update vertex data             
+      for (var s = 0; s < NUM_SUBSETS; s++){
+          var curSubset = subsets[s];
+          for (var i = 0; i < num_points_subset_l; i++){
+              curSubset[i].vertex.position.x = scaleX * (curSubset[i].x - xMin) - scale_factor_l;
+              curSubset[i].vertex.position.y = scaleY * (curSubset[i].y - yMin) - scale_factor_l;                 
+          }
+      }
+  }
+          
+  function prepareOrbit(){
+      shuffleParams();
+      orbit.xMin = 0;
+      orbit.xMax = 0;
+      orbit.yMin = 0;
+      orbit.yMax = 0;
+  }
+          
+  function shuffleParams() {
+      a = A_MIN + Math.random() * (A_MAX - A_MIN);
+      b = B_MIN + Math.random() * (B_MAX - B_MIN);
+      c = C_MIN + Math.random() * (C_MAX - C_MIN);
+      d = D_MIN + Math.random() * (D_MAX - D_MIN);
+      e = E_MIN + Math.random() * (E_MAX - E_MIN);
+  }
 
 ///////////////////////////////////////////////
 // Event listeners
 ///////////////////////////////////////////////
-function onDocumentMouseMove( event ) {
-    mouseX = event.clientX - windowHalfX;
-    mouseY = event.clientY - windowHalfY;
-}
+  function onDocumentMouseMove( event ) {
+      mouseX = event.clientX - windowHalfX;
+      mouseY = event.clientY - windowHalfY;
+  }
 
-function onDocumentTouchStart( event ) {
-    if ( event.touches.length == 1 ) {
-        event.preventDefault();
-        mouseX = event.touches[ 0 ].pageX - windowHalfX;
-        mouseY = event.touches[ 0 ].pageY - windowHalfY;
-    }
-}
+  function onDocumentTouchStart( event ) {
+      if ( event.touches.length == 1 ) {
+          event.preventDefault();
+          mouseX = event.touches[ 0 ].pageX - windowHalfX;
+          mouseY = event.touches[ 0 ].pageY - windowHalfY;
+      }
+  }
 
-function onDocumentTouchMove( event ) {
-    if ( event.touches.length == 1 ) {
-        event.preventDefault();
-        mouseX = event.touches[ 0 ].pageX - windowHalfX;
-        mouseY = event.touches[ 0 ].pageY - windowHalfY;
-    }
-}
+  function onDocumentTouchMove( event ) {
+      if ( event.touches.length == 1 ) {
+          event.preventDefault();
+          mouseX = event.touches[ 0 ].pageX - windowHalfX;
+          mouseY = event.touches[ 0 ].pageY - windowHalfY;
+      }
+  }
 
-function onWindowResize( event ) {
-    windowHalfX = window.innerWidth / 2;
-    windowHalfY = window.innerHeight / 2;
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize( window.innerWidth, window.innerHeight );
-}               
-        
-function onKeyDown(event) {
-    // IM: Old speed increase that stops increasing speed when a speed of 20 is reached
-    //if(event.keyCode == 38 && speed < 20) speed += .5;
-    // IM: New speed increase without limit (realistically hardware limited)
-    if (event.keyCode == 38) speed += .5;
-        //else if (event.keyCode == 40 && speed > 0) speed -= .5;
-    else if (event.keyCode == 40) speed -= .5;
-    else if (event.keyCode == 37) rotationSpeed += .001;
-    else if (event.keyCode == 39) rotationSpeed -= .001;
-    else if (event.keyCode == 72 || event.keyCode == 104) toggleVisuals();
-    // C
-    else if (event.keyCode == 67) toggleChaos();
-    // W
-    else if (event.keyCode == 87) camera.position.y += 5;
-    // A
-    else if (event.keyCode == 83) camera.position.y -= 5;
-    // S
-    else if (event.keyCode == 65) camera.position.x -= 5;
-    // D
-    else if (event.keyCode == 68) camera.position.x += 5;
-    // Space
-    else if (event.keyCode == 32) {
-        camera.position.x = 0;
-        camera.position.y = 0;
-    }
+  function onWindowResize( event ) {
+      windowHalfX = window.innerWidth / 2;
+      windowHalfY = window.innerHeight / 2;
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize( window.innerWidth, window.innerHeight );
+  }               
+          
+  function onKeyDown(event) {
+      // IM: Old speed increase that stops increasing speed when a speed of 20 is reached
+      //if(event.keyCode == 38 && speed < 20) speed += .5;
+      // IM: New speed increase without limit (realistically hardware limited)
+      if (event.keyCode == 38) speed += .5;
+          //else if (event.keyCode == 40 && speed > 0) speed -= .5;
+      else if (event.keyCode == 40) speed -= .5;
+      else if (event.keyCode == 37) rotationSpeed += .001;
+      else if (event.keyCode == 39) rotationSpeed -= .001;
+      else if (event.keyCode == 72 || event.keyCode == 104) toggleVisuals();
+      // C
+      else if (event.keyCode == 67) toggleChaos();
+      // W
+      else if (event.keyCode == 87) camera.position.y += 5;
+      // A
+      else if (event.keyCode == 83) camera.position.y -= 5;
+      // S
+      else if (event.keyCode == 65) camera.position.x -= 5;
+      // D
+      else if (event.keyCode == 68) camera.position.x += 5;
+      // Space
+      else if (event.keyCode == 32) {
+          camera.position.x = 0;
+          camera.position.y = 0;
+      }
 
-}
-    
-function showHideAbout() {
-    if (document.getElementById('about').style.display == "block") {
-        document.getElementById('about').style.display = "none";
-    } else {
-        document.getElementById('about').style.display = "block";
-    }
-}
-        
-function toggleVisuals(){
-    if(VISUALS_VISIBLE){
-        document.getElementById('info').style.display = 'none';
-        stats.domElement.style.display = 'none';
-        renderer.domElement.style.cursor = "none";
-        VISUALS_VISIBLE = false;
-    }
-    else {
-        document.getElementById('info').style.display = 'block';
-        stats.domElement.style.display = 'block';
-        renderer.domElement.style.cursor = "";
-        VISUALS_VISIBLE = true;
-    }
-}
+  }
+      
+  function showHideAbout() {
+      if (document.getElementById('about').style.display == "block") {
+          document.getElementById('about').style.display = "none";
+      } else {
+          document.getElementById('about').style.display = "block";
+      }
+  }
+          
+  function toggleVisuals(){
+      if(VISUALS_VISIBLE){
+          document.getElementById('info').style.display = 'none';
+          stats.domElement.style.display = 'none';
+          renderer.domElement.style.cursor = "none";
+          VISUALS_VISIBLE = false;
+      }
+      else {
+          document.getElementById('info').style.display = 'block';
+          stats.domElement.style.display = 'block';
+          renderer.domElement.style.cursor = "";
+          VISUALS_VISIBLE = true;
+      }
+  }
 
-//IM Toggles Constraints on Random Numbers
-function toggleChaos() {
-    if (CHAOS_ENABLED) {
-        A_MIN = -42;
-        A_MAX = 42;
-        B_MIN = 0;
-        B_MAX = 42;
-        C_MIN = 0;
-        C_MAX = 42;
-        D_MIN = 0;
-        D_MAX = 42;
-        E_MIN = 0;
-        E_MAX = 42;
-        CHAOS_ENABLED = false;
-        console.log("Chaos Disabled");
-    }
-    else {
-        A_MIN = -30;
-        A_MAX = 30;
-        B_MIN = .2;
-        B_MAX = 1.8;
-        C_MIN = 5;
-        C_MAX = 17;
-        D_MIN = 0;
-        D_MAX = 10;
-        E_MIN = 0;
-        E_MAX = 12;
-        CHAOS_ENABLED = true;
-        console.log("Chaos Enabled");
-    }
-}
+  //IM Toggles Constraints on Random Numbers
+  function toggleChaos() {
+      if (CHAOS_ENABLED) {
+          A_MIN = -42;
+          A_MAX = 42;
+          B_MIN = 0;
+          B_MAX = 42;
+          C_MIN = 0;
+          C_MAX = 42;
+          D_MIN = 0;
+          D_MAX = 42;
+          E_MIN = 0;
+          E_MAX = 42;
+          CHAOS_ENABLED = false;
+          console.log("Chaos Disabled");
+      }
+      else {
+          A_MIN = -30;
+          A_MAX = 30;
+          B_MIN = .2;
+          B_MAX = 1.8;
+          C_MIN = 5;
+          C_MAX = 17;
+          D_MIN = 0;
+          D_MAX = 10;
+          E_MIN = 0;
+          E_MAX = 12;
+          CHAOS_ENABLED = true;
+          console.log("Chaos Enabled");
+      }
+  }
