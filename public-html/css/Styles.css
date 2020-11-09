@@ -73,3 +73,42 @@ a {
     top: 5px;
     left: 5px;
 }
+
+
+
+
+.button-container {
+  position: absolute;
+  width: 100%;
+  text-align: center;
+  top: 85%;
+}
+button {
+  padding: 13px 28px;
+  width: 200px;
+  text-align: center;
+  font-size: 20px;
+  border-radius: 12px;
+  text-decoration: none;
+  border: none;
+  cursor: pointer;
+  outline: none;
+  color: white;
+  transition: background-color 200ms linear;
+}
+button span {
+  display: block;
+  float: left;
+}
+.green-button {
+  background-color: #4CAF50;
+}
+.green-button:hover {
+  background-color: #3e8e41;
+}
+.red-button {
+  background-color: #db6247;
+}
+.red-button:hover {
+  background-color: #cc5338;
+}

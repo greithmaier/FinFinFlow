@@ -75,178 +75,158 @@ var rotationSpeed = 0.005;
 // Variables for Microphone Visualzer
 var AudioContext;
 var audioContent;
-var start = false;
-var permission = false;
-var path;
-var seconds = 0;
-var loud_volume_threshold = 30;
-var visualizer_for_audio;
-var h;
-var hSub;
 var audioStream;
-var stream;
-var audioCtx;
-var source;
-var biquadFilter;
 var analyser;
+var bufferLength;
+var frequencyArray;
+
+// Transfer Vars
+var sum_low, sum_mid, sum_high;
 
 $(document).ready(function() {
+  $('#button').on('click', function() {
+    $('#button').hide();
 
-  init();
-
-  permission = true;
-
-  animate();
-  
-});
-
-
-function init() {  
-    // From Mic Visulizer
-    navigator.mediaDevices.getUserMedia({audio:true}).then(readMicrophone)
+    navigator.mediaDevices.getUserMedia({audio:true})
+      .then(init_microphone)
+      .catch(function(e){console.log(e)});
 
     AudioContext = window.AudioContext || window.webkitAudioContext;
     audioContent = new AudioContext();
+  });
 
-    // IM: New options are as follows
-    // - cubeLR.png (hypercube)
+  init_fractals();
 
-    // - fractalLR.png (fractal)
-    // - galaxy.png (default)
-    sprite1 = THREE.ImageUtils.loadTexture("cubeLR.png");
+  animate();
+});
 
-    container = document.createElement( 'div' );
-    document.body.appendChild(container);
-    // Camera FOV default 82
-    camera = new THREE.PerspectiveCamera(90, window.innerWidth / window.innerHeight, 1, 3 * SCALE_FACTOR );
-    camera.position.z = SCALE_FACTOR/2;
-    scene = new THREE.Scene();
-    // Fog - Default value 0.0012
-    scene.fog = new THREE.FogExp2(0x000000, 0.0015);
-    generateOrbit();
-    for (var s = 0; s < NUM_SUBSETS; s++){hueValues[s] = Math.random();}
-            
-    // Create particle systems
-    for (var k = 0; k < NUM_LEVELS; k++){
-        for (var s = 0; s < NUM_SUBSETS; s++){
-            var geometry = new THREE.Geometry();
-            for (var i = 0; i < NUM_POINTS_SUBSET; i++){geometry.vertices.push( orbit.subsets[s][i].vertex);}
-            var materials = new THREE.ParticleBasicMaterial( { size: (SPRITE_SIZE ), map: sprite1, blending: THREE.AdditiveBlending, depthTest: false, transparent : true } );
-            materials.color.setHSV(hueValues[s], DEF_SATURATION, DEF_BRIGHTNESS);
-            var particles = new THREE.ParticleSystem( geometry, materials );
-            particles.myMaterial = materials;
-            particles.myLevel = k;
-            particles.mySubset = s;
-            particles.position.x = 0;
-            particles.position.y = 0;
-            particles.position.z = - LEVEL_DEPTH * k - (s  * LEVEL_DEPTH / NUM_SUBSETS) + SCALE_FACTOR/2;
-            particles.needsUpdate = 0;
-            scene.add( particles );
-        }
-    }
+var init_fractals = function() {
+  // IM: New options are as follows
+  // - cubeLR.png (hypercube)
+  // - fractalLR.png (fractal)
+  // - galaxy.png (default)
+  sprite1 = THREE.ImageUtils.loadTexture("cubeLR.png");
 
-    // Setup renderer and effects
-    renderer = new THREE.WebGLRenderer( { clearColor: 0x000000, clearAlpha: 1, antialias: false } );
-    renderer.setSize( window.innerWidth, window.innerHeight );
+  container = document.createElement( 'div' );
+  document.body.appendChild(container);
+  // Camera FOV default 82
+  camera = new THREE.PerspectiveCamera(90, window.innerWidth / window.innerHeight, 1, 3 * SCALE_FACTOR );
+  camera.position.z = SCALE_FACTOR/2;
+  scene = new THREE.Scene();
+  // Fog - Default value 0.0012
+  scene.fog = new THREE.FogExp2(0x000000, 0.0015);
+  generateOrbit();
+  for (var s = 0; s < NUM_SUBSETS; s++){hueValues[s] = Math.random();}
+          
+  // Create particle systems
+  for (var k = 0; k < NUM_LEVELS; k++){
+      for (var s = 0; s < NUM_SUBSETS; s++){
+          var geometry = new THREE.Geometry();
+          for (var i = 0; i < NUM_POINTS_SUBSET; i++){geometry.vertices.push( orbit.subsets[s][i].vertex);}
+          var materials = new THREE.ParticleBasicMaterial( { size: (SPRITE_SIZE ), map: sprite1, blending: THREE.AdditiveBlending, depthTest: false, transparent : true } );
+          materials.color.setHSV(hueValues[s], DEF_SATURATION, DEF_BRIGHTNESS);
+          var particles = new THREE.ParticleSystem( geometry, materials );
+          particles.myMaterial = materials;
+          particles.myLevel = k;
+          particles.mySubset = s;
+          particles.position.x = 0;
+          particles.position.y = 0;
+          particles.position.z = - LEVEL_DEPTH * k - (s  * LEVEL_DEPTH / NUM_SUBSETS) + SCALE_FACTOR/2;
+          particles.needsUpdate = 0;
+          scene.add( particles );
+      }
+  }
 
-    container.appendChild( renderer.domElement );
-            
-    // Setup listeners
-    document.addEventListener( 'mousemove', onDocumentMouseMove, false );
-    document.addEventListener( 'touchstart', onDocumentTouchStart, false );
-    document.addEventListener( 'touchmove', onDocumentTouchMove,
-     false );
-    document.addEventListener( 'keydown', onKeyDown, false );
-    window.addEventListener( 'resize', onWindowResize, false );
-            
-    // Schedule orbit regeneration
-    setInterval(updateOrbit, 5000);
+  // Setup renderer and effects
+  renderer = new THREE.WebGLRenderer( { clearColor: 0x000000, clearAlpha: 1, antialias: false } );
+  renderer.setSize( window.innerWidth, window.innerHeight );
+
+  container.appendChild( renderer.domElement );
+          
+  // Setup listeners
+  document.addEventListener( 'mousemove', onDocumentMouseMove, false );
+  document.addEventListener( 'touchstart', onDocumentTouchStart, false );
+  document.addEventListener( 'touchmove', onDocumentTouchMove,
+    false );
+  document.addEventListener( 'keydown', onKeyDown, false );
+  window.addEventListener( 'resize', onWindowResize, false );
+          
+  // Schedule orbit regeneration
+  setInterval(updateOrbit, 5000);
 }
 
-
-function animate() {
-  setInterval(requestAnimationFrame(animate), 1500);
+var animate = function() {
+  requestAnimationFrame(animate);
 
   render();
-
-  //navigator.mediaDevices.getUserMedia({audio:true}).then(readMicrophone);
-
-  //stats.update();
 }
 
-var readMicrophone = function(stream) {
-      // Create a MediaStreamAudioSourceNode
-    // Feed the HTMLMediaElement into it
+var init_microphone = function(stream) {
+  audioStream = audioContent.createMediaStreamSource(stream);
+  analyser = audioContent.createAnalyser();
 
-    //audioCtx = new AudioContext();
-    source = AudioContext.createMediaStreamSource(stream);
-    analyser = AudioContext.createAnalyser();
+  audioStream.connect(analyser);
+  analyser.fftSize = 256;
 
-    //analyser.fftSize = 1024;
-    source.connect(analyser);
+  bufferLength = analyser.frequencyBinCount;
+  frequencyArray = new Uint8Array(bufferLength);
+}
 
-    var bufferLength = analyser.frequencyBinCount;
-    var frequencyArray = new Uint8Array(bufferLength);
-
+var render = function() {
+  if (audioContent !== undefined && analyser !== undefined) {
     analyser.getByteFrequencyData(frequencyArray);
 
-    console.log(frequencyArray);
+    sum_low = 0;
+    sum_mid = 0;
+    sum_high = 0;
+  
+    for (var i = 0; i < 42; i++) sum_low += frequencyArray[i];
+    for (i = 42; i < 84; i++) sum_mid += frequencyArray[i];
+    for (i = 84; i < 128; i++) sum_high += frequencyArray[i];
 
-    //biquadFilter.connect(audioCtx.destination);
-    //biquadFilter.connect(audioCtx.destination);
-    //console.log(source['context']['listener'])//['upY']['value']);
-    //console.log('baseLat:' + audioCtx.destination.context.baseLatency)//['upY']['value']);
+    camera.position.x = sum_low / 100;
+    camera.position.y = sum_high / 10;
+    
+    //console.log(sum_low + ' ' + sum_mid + ' ' + sum_high);
+  }
 
-    // Get new mouse pointer coordinates when mouse is moved
-    // then set new gain value
-    /*
-    range.oninput = function() {
-
-    biquadFilter.gain.value = range.value;
-    };
-    //.catch(function(error) { console.log(error) } );
-    */
-
-    return audioCtx.destination.context.baseLatency;
-};
-
-
-function render() {
-    /* IM - Mouse Driven Camera Positioning (temporarily removed)                  
-    if (camera.position.x >= - CAMERA_BOUND && camera.position.x <= CAMERA_BOUND){
-        camera.position.x += ( mouseX - camera.position.x ) * 0.05;
-        if (camera.position.x < - CAMERA_BOUND) camera.position.x = -CAMERA_BOUND;
-        if (camera.position.x >  CAMERA_BOUND) camera.position.x = CAMERA_BOUND;
+  
+  if (camera.position.x >= - CAMERA_BOUND && camera.position.x <= CAMERA_BOUND){
+      //camera.position.x += ( mouseX - camera.position.x ) * 0.05;
+      if (camera.position.x < - CAMERA_BOUND) camera.position.x = -CAMERA_BOUND;
+      if (camera.position.x >  CAMERA_BOUND) camera.position.x = CAMERA_BOUND;
+  }
+  if (camera.position.y >= - CAMERA_BOUND && camera.position.y <= CAMERA_BOUND){
+      //camera.position.y += ( - mouseY - camera.position.y ) * 0.05;
+      if (camera.position.y < - CAMERA_BOUND) camera.position.y = -CAMERA_BOUND;
+      if (camera.position.y >  CAMERA_BOUND) camera.position.y = CAMERA_BOUND;
+  }
+          
+  camera.lookAt( scene.position );
+          
+  for( i = 0; i < scene.objects.length; i++ ) {
+    scene.objects[i].position.z +=  speed;
+    scene.objects[i].rotation.z += rotationSpeed;
+    if (scene.objects[i].position.z > camera.position.z) {
+      scene.objects[i].position.z = - (NUM_LEVELS -1) * LEVEL_DEPTH;
+      if (scene.objects[i].needsUpdate == 1){
+        scene.objects[i].geometry.__dirtyVertices = true;  
+        scene.objects[i].myMaterial.color.setHSV(
+          hueValues[scene.objects[i].mySubset],
+          DEF_SATURATION,
+          DEF_BRIGHTNESS
+        );
+        scene.objects[i].needsUpdate = 0;
+      }
     }
-    if (camera.position.y >= - CAMERA_BOUND && camera.position.y <= CAMERA_BOUND){
-        camera.position.y += ( - mouseY - camera.position.y ) * 0.05;
-        if (camera.position.y < - CAMERA_BOUND) camera.position.y = -CAMERA_BOUND;
-        if (camera.position.y >  CAMERA_BOUND) camera.position.y = CAMERA_BOUND;
-    }
-    */
-            
-    camera.lookAt( scene.position );
-            
-    for( i = 0; i < scene.objects.length; i++ ) {
-        scene.objects[i].position.z +=  speed;
-        scene.objects[i].rotation.z += rotationSpeed;
-        if (scene.objects[i].position.z > camera.position.z){
-            scene.objects[i].position.z = - (NUM_LEVELS -1) * LEVEL_DEPTH;
-            if (scene.objects[i].needsUpdate == 1){
-                scene.objects[i].geometry.__dirtyVertices = true;   
-                scene.objects[i].myMaterial.color.setHSV( hueValues[scene.objects[i].mySubset], DEF_SATURATION, DEF_BRIGHTNESS);
-                scene.objects[i].needsUpdate = 0;
-            }
-        }
-    }
-    renderer.render( scene, camera );
+  }
+  renderer.render( scene, camera );
 }
 
 ///////////////////////////////////////////////
 // Hopalong Orbit Generator
 ///////////////////////////////////////////////         
   function updateOrbit(){
-      console.log('--- Update Orbit ---')
       generateOrbit();
       for (var s = 0; s < NUM_SUBSETS; s++){
           hueValues[s] = Math.random();
@@ -254,7 +234,6 @@ function render() {
       for( i = 0; i < scene.objects.length; i++ ) {
           scene.objects[i].needsUpdate = 1;
       }
-
   }
           
   function generateOrbit(){

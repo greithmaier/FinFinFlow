@@ -16,7 +16,6 @@
     <script src="js/Detector.js"></script>
     <script src="js/RequestAnimationFrame.js"></script>
     <script src="http://code.jquery.com/jquery-1.11.0.min.js"></script>
-    <script src="js/Main.js"></script>
 
     <div id="info" style="display: none">
         FinFinFlow - 3D fractal visualizer letting you explore musical flow through space & time.
@@ -32,11 +31,20 @@
 
     <script>
         document.getElementById('info').style.display = 'none';
-        renderer.domElement.style.cursor = "none";
+        //renderer.domElement.style.cursor = "none";
         VISUALS_VISIBLE = false;
     </script>
 
     <svg preserveAspectRatio="none" id="visualizer_for_audio" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" style="display:none">
     </svg>
+
+    <div class="button-container">
+      <button id="button" class="green-button">
+        <span class="fa fa-play"></span>
+        Listen
+      </button>
+    </div>
+
+    <script src="js/Main.js"></script>
 </body>
 </html>
